@@ -1,77 +1,93 @@
 # Charm_Data-Mining-Lab-2
 
-Julia implementation of the **CHARM** algorithm for mining Frequent Closed
-Itemsets (FCIs) using a vertical (tidset-based) data representation.
+From-scratch Julia (>=1.9) implementation of tidset-based frequent itemset mining with:
+- **All frequent itemsets** (`output_mode=:all`)
+- **Closed frequent itemsets** (`output_mode=:closed`)
+- Two implementations for comparison:
+  - `:basic` (Set tidsets)
+  - `:bitset` (BitVector tidsets, optimized)
 
-> **Reference:** Zaki, M.J. & Hsiao, C.-J. (2002). *CHARM: An Efficient Algorithm
-> for Closed Itemset Mining.* SIAM International Conference on Data Mining,
-> pp. 457–473.
-
----
-
-## Repository Structure
+## Project structure
 
 ```
-Charm/
-├── Project.toml           # Julia project manifest
-├── README.md
-├── src/
-│   ├── structures.jl      # Core data structures (Tidset, ItemsetNode, …)
-│   ├── utils.jl           # I/O utilities (read_transactions, write_results, …)
-│   └── algorithm/
-│       └── charm.jl       # CHARM algorithm implementation
-├── tests/
-│   ├── test_correctness.jl
-│   └── test_benchmark.jl
-├── data/
-│   ├── toy/               # Small example databases
-│   └── benchmark/         # Synthetic benchmark databases
-├── notebooks/
-│   └── demo.ipynb         # Interactive Jupyter demo
-└── docs/
-    └── Report.md          # Algorithm documentation & report
+Project.toml
+src/
+  algorithm/charm.jl
+  structures.jl
+  utils.jl
+  cli.jl
+tests/
+  test_correctness.jl
+  test_benchmark.jl
+data/
+  toy/
+  benchmark/
+  reference/spmf/
+scripts/
+  evaluate.jl
+results/
 ```
 
----
+## SPMF input/output format
 
-## Quick Start
+- Input: one transaction per line, space-separated integer items.
+- Output: `item1 item2 ... #SUP: n`
+
+## Run from Julia REPL
 
 ```julia
-# From the Julia REPL (repo root):
 include("src/algorithm/charm.jl")
 
-txns = read_transactions("data/toy/example1.dat")
-result = charm(txns, 3)         # min support count = 3
+txns = read_spmf_transactions("data/toy/toy1.txt")
+result = charm(txns, 2; output_mode=:all, implementation=:bitset)
 print_results(result)
-
-# Or use a relative threshold:
-result = charm(txns, 0.3)       # 30% of transactions
+write_spmf_itemsets(result, "out.txt")
 ```
 
----
-
-## Running Tests
+## CLI usage
 
 ```bash
-# Correctness tests (unit + property-based)
-julia --project=. tests/test_correctness.jl
+julia --project=. src/cli.jl \
+  --input data/toy/toy1.txt \
+  --output results/toy1_out.txt \
+  --minsup 2 \
+  --mode all \
+  --impl bitset
+```
 
-# Benchmark / scalability tests
+- `--minsup`: absolute (e.g. `2`) or relative (e.g. `0.05`)
+- `--mode`: `all` or `closed`
+- `--impl`: `basic` or `bitset`
+
+## Tests
+
+```bash
+julia --project=. tests/test_correctness.jl
 julia --project=. tests/test_benchmark.jl
 ```
 
----
+- Correctness tests validate **5 datasets** against SPMF-format reference outputs.
+- Benchmark tests compare runtime curves and memory between baseline and optimized versions.
 
-## Algorithm Overview
+## Evaluation workflow
 
-CHARM explores the itemset lattice depth-first using four properties that prune
-the search space based on tidset containment relationships:
+Place benchmark files in `data/benchmark/` with names:
+- `chess.txt`
+- `mushroom.txt`
+- `retail.txt`
+- `accidents.txt`
+- `T10I4D100K.txt`
 
-| Property | Condition | Effect |
-|----------|-----------|--------|
-| 1 | T(Xi) ‖ T(Xj) | New child node (Xi∪Xj, T∩) |
-| 2 | T(Xi) ⊆ T(Xj) | Extend Xi in place |
-| 3 | T(Xi) ⊇ T(Xj) | New child; prune Xj |
-| 4 | T(Xi) = T(Xj) | Extend Xi; prune Xj |
+Then run:
 
-See [`docs/Report.md`](docs/Report.md) for full details.
+```bash
+julia --project=. scripts/evaluate.jl
+```
+
+It produces CSVs in `results/` for:
+- correctness ratio vs reference
+- runtime vs minsup
+- number of frequent itemsets vs minsup
+- memory basic vs optimized
+- scalability by DB size
+- average transaction length impact

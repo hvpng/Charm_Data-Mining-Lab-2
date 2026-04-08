@@ -1,93 +1,45 @@
-# test_benchmark.jl — Performance / scalability tests for CHARM
-#
-# Run with:  julia tests/test_benchmark.jl
-# or via:   julia --project=. tests/test_benchmark.jl
-
 using Test
-using Random
 
 _REPO_ROOT = joinpath(@__DIR__, "..")
 include(joinpath(_REPO_ROOT, "src", "algorithm", "charm.jl"))
 
-# ─── Helper ──────────────────────────────────────────────────────────────────
-
-"""Measure wall-clock time (seconds) of `f()`."""
-function timed(f)
+function timed_run(f)
     t0 = time()
     result = f()
-    return result, time() - t0
+    elapsed_ms = (time() - t0) * 1000
+    return result, elapsed_ms
 end
 
-# ─── Benchmarks ──────────────────────────────────────────────────────────────
+@testset "Benchmark + optimization comparison" begin
+    path = joinpath(_REPO_ROOT, "data", "benchmark", "T10I4D1000.dat")
+    @test isfile(path)
+    txns = read_spmf_transactions(path)
+    @test length(txns) == 1000
 
-@testset "CHARM benchmark tests" begin
+    println("\nRuntime vs minsup (basic vs bitset)")
+    for minsup in [0.20, 0.15, 0.10, 0.08, 0.05]
+        rb, tb = timed_run(() -> charm(txns, minsup; output_mode=:all, implementation=:basic))
+        ro, to = timed_run(() -> charm(txns, minsup; output_mode=:all, implementation=:bitset))
 
-    # ── 1. Toy databases ─────────────────────────────────────────────────────
-    @testset "toy databases" begin
-        toy_dir = joinpath(_REPO_ROOT, "data", "toy")
+        @test Dict(Tuple(fi.items)=>fi.support for fi in rb.itemsets) == Dict(Tuple(fi.items)=>fi.support for fi in ro.itemsets)
+        @test tb > 0.0
+        @test to > 0.0
 
-        for fname in readdir(toy_dir)
-            endswith(fname, ".dat") || continue
-            path = joinpath(toy_dir, fname)
-            txns = read_transactions(path)
-            n = length(txns)
-            @test n > 0
-
-            result, elapsed = timed(() -> charm(txns, 2))
-            @test length(result) >= 0
-            println("  $(fname): $(n) txns → $(length(result)) FCIs in $(round(elapsed*1000, digits=1)) ms")
-        end
+        speedup = tb / to
+        println("  minsup=$(Int(round(minsup*100)))% basic=$(round(tb,digits=2))ms bitset=$(round(to,digits=2))ms speedup=$(round(speedup,digits=2))x itemsets=$(length(ro))")
     end
 
-    # ── 2. Synthetic benchmark database ──────────────────────────────────────
-    @testset "synthetic benchmark (T10I4D1000)" begin
-        path = joinpath(_REPO_ROOT, "data", "benchmark", "T10I4D1000.dat")
-        isfile(path) || (@warn "Benchmark file not found; skipping"; return)
+    # Peak memory comparison at medium minsup
+    minsup = 0.10
+    stats_basic = @timed charm(txns, minsup; output_mode=:all, implementation=:basic)
+    stats_opt   = @timed charm(txns, minsup; output_mode=:all, implementation=:bitset)
 
-        txns = read_transactions(path)
-        @test length(txns) == 1000
+    @test stats_basic.time > 0
+    @test stats_opt.time > 0
+    @test stats_basic.bytes > 0
+    @test stats_opt.bytes > 0
 
-        for min_sup in [0.05, 0.10, 0.20]
-            result, elapsed = timed(() -> charm(txns, min_sup))
-            n_fcis = length(result)
-            println("  T10I4D1000 min_sup=$(Int(round(min_sup*100)))%: " *
-                    "$(n_fcis) FCIs in $(round(elapsed*1000, digits=1)) ms")
-            @test elapsed < 60.0
-            @test n_fcis >= 0
-        end
-    end
-
-    # ── 3. Scalability: increasing database size ──────────────────────────────
-    @testset "scalability by database size" begin
-        rng = MersenneTwister(123)
-        n_items = 50
-
-        println("\n  Scalability (min_sup=10%, 50 items):")
-        prev_elapsed = 0.0
-        for n_txns in [100, 500, 1000, 2000]
-            txns = [String.(string.(sort(randperm(rng, n_items)[1:rand(rng,3:12)])))
-                    for _ in 1:n_txns]
-            result, elapsed = timed(() -> charm(txns, 0.10))
-            println("    n=$(n_txns): $(length(result)) FCIs in $(round(elapsed*1000,digits=1)) ms")
-            @test elapsed < 120.0
-        end
-    end
-
-    # ── 4. Scalability: varying min_support ───────────────────────────────────
-    @testset "scalability by min_support" begin
-        rng = MersenneTwister(456)
-        n_items = 40
-        txns = [String.(string.(sort(randperm(rng, n_items)[1:rand(rng,2:10)])))
-                for _ in 1:500]
-
-        println("\n  Scalability (500 txns, 40 items):")
-        for min_sup in [0.30, 0.20, 0.10, 0.05]
-            result, elapsed = timed(() -> charm(txns, min_sup))
-            println("    min_sup=$(Int(round(min_sup*100)))%: $(length(result)) FCIs in $(round(elapsed*1000,digits=1)) ms")
-            @test elapsed < 120.0
-        end
-    end
-
-end  # @testset
+    println("\nMemory at minsup=10%: basic=$(round(stats_basic.bytes/1024^2,digits=2)) MiB, bitset=$(round(stats_opt.bytes/1024^2,digits=2)) MiB")
+end
 
 println("\nAll benchmark tests passed ✓")

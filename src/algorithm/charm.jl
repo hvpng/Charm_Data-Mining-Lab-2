@@ -1,178 +1,117 @@
-# charm.jl — CHARM algorithm using vertical (tidset) representation
-#
-# Reference: Zaki, M.J. & Hsiao, C.-J. (2002). CHARM: An Efficient Algorithm for
-#            Closed Itemset Mining. Proceedings of the 2002 SIAM International
-#            Conference on Data Mining, pp. 457–473.
-#
-# The algorithm mines all Frequent Closed Itemsets (FCIs) from a transaction
-# database using a depth-first search over a set-enumeration tree.
-# Tidsets allow O(1) support computation via set intersection.
-
 include(joinpath(@__DIR__, "..", "structures.jl"))
 include(joinpath(@__DIR__, "..", "utils.jl"))
 
+using DataStructures: DefaultDict
 
-# ─── Public API ──────────────────────────────────────────────────────────────
+support(t::Set{Int}) = length(t)
+support(t::BitVector) = count(t)
 
-"""
-    charm(transactions, min_support) -> CharmResult
+intersect_tidset(a::Set{Int}, b::Set{Int}) = intersect(a, b)
+intersect_tidset(a::BitVector, b::BitVector) = a .& b
 
-Run the CHARM algorithm and return all frequent closed itemsets.
-
-# Arguments
-- `transactions`  — `Vector{Vector{String}}` (or any iterable of item lists)
-- `min_support`   — minimum support, either
-    * an `Int`   → absolute transaction count
-    * a `Float64` in (0,1] → fraction of total transactions
-
-# Returns
-A `CharmResult` containing every frequent closed itemset with its support.
-
-# Example
-```julia
-include("src/algorithm/charm.jl")
-txns = [["a","b","c"],["a","b"],["b","c"]]
-result = charm(txns, 2)
-print_results(result)
-```
-"""
-function charm(transactions::Vector{<:AbstractVector}, min_support::Real)::CharmResult
-    n = length(transactions)
-    min_sup = resolve_min_support(min_support, n)
-
-    # Build per-item tidsets in a single database scan
-    raw_tidsets = build_tidsets(transactions)
-
-    # Keep only frequent single items; sort by increasing support (improves pruning)
-    nodes = [ItemsetNode([item], tids)
-             for (item, tids) in raw_tidsets
-             if length(tids) >= min_sup]
-    sort!(nodes; by=support)
-
-    closed = Vector{ClosedItemset}()
-    _charm_extend!(nodes, closed, min_sup)
-
-    return CharmResult(closed, min_sup, n)
+function _build_vertical_basic(transactions::Vector{Vector{Int}})
+    tidsets = DefaultDict{Int, Set{Int}}(() -> Set{Int}())
+    for (tid, txn) in enumerate(transactions)
+        for item in txn
+            push!(tidsets[item], tid)
+        end
+    end
+    Dict(tidsets)
 end
 
+function _build_vertical_bitset(transactions::Vector{Vector{Int}})
+    n = length(transactions)
+    items = sort(unique(vcat(transactions...)))
+    tidsets = Dict{Int, BitVector}(item => falses(n) for item in items)
+    for (tid, txn) in enumerate(transactions)
+        for item in txn
+            tidsets[item][tid] = true
+        end
+    end
+    tidsets
+end
 
-# ─── Internal helpers ────────────────────────────────────────────────────────
+function _mine_all_frequent!(
+    out::Vector{FrequentItemset},
+    prefix::Vector{Int},
+    candidates::Vector{Tuple{Int, T}},
+    min_sup::Int,
+    maxlen::Int,
+) where {T}
+    for i in eachindex(candidates)
+        item_i, tid_i = candidates[i]
+        sup_i = support(tid_i)
+        sup_i < min_sup && continue
 
-"""
-    _charm_extend!(P, closed, min_sup)
+        items_i = [prefix; item_i]
+        push!(out, FrequentItemset(items_i, sup_i))
+        length(items_i) >= maxlen && continue
 
-Depth-first enumeration of the itemset lattice (CHARM-Extend procedure).
+        suffix = Tuple{Int, T}[]
+        for j in (i + 1):length(candidates)
+            item_j, tid_j = candidates[j]
+            tid_ij = intersect_tidset(tid_i, tid_j)
+            support(tid_ij) >= min_sup && push!(suffix, (item_j, tid_ij))
+        end
 
-`P` is the current list of `ItemsetNode`s at this level of the search tree.
-Discovered closed itemsets are appended to `closed`.
-"""
-function _charm_extend!(P::Vector{ItemsetNode},
-                        closed::Vector{ClosedItemset},
-                        min_sup::Int)
-    n = length(P)
-    removed = falses(n)          # marks nodes pruned from this level
+        !isempty(suffix) && _mine_all_frequent!(out, items_i, suffix, min_sup, maxlen)
+    end
+end
 
-    for i in 1:n
-        removed[i] && continue
-
-        # Local copies that may be extended by properties 2 and 4
-        Xi  = copy(P[i].items)
-        Ti  = P[i].tidset
-
-        # Accumulate child nodes for the recursive call
-        new_P = Vector{ItemsetNode}()
-
-        for j in (i + 1):n
-            removed[j] && continue
-
-            Xj = P[j].items
-            Tj = P[j].tidset
-
-            # Tidset of the combined itemset Xi ∪ Xj
-            T_new = intersect(Ti, Tj)
-            length(T_new) < min_sup && continue   # below minimum support
-
-            X_new = _merge_sorted(Xi, Xj)         # sorted union
-
-            if Ti == Tj
-                # ── Property 4: T(Xi) = T(Xj) ──────────────────────────────
-                # Extend Xi with Xj's items; the combined node has the same
-                # tidset, so Xj is fully subsumed — remove it from this level.
-                Xi = X_new
-                Ti = T_new
-                removed[j] = true
-
-            elseif issubset(Ti, Tj)
-                # ── Property 2: T(Xi) ⊊ T(Xj) ──────────────────────────────
-                # Every transaction that contains Xi also contains Xj, so Xi
-                # and Xi ∪ Xj have the same tidset.  Extend Xi in place; Xj
-                # stays for further pairing.
-                Xi = X_new
-                # Ti is unchanged (Ti ⊆ Tj  ⟹  Ti ∩ Tj = Ti)
-
-            elseif issubset(Tj, Ti)
-                # ── Property 3: T(Xj) ⊊ T(Xi) ──────────────────────────────
-                # Xi ∪ Xj has Xj's tidset; Xj itself is subsumed — remove it.
-                push!(new_P, ItemsetNode(X_new, T_new.tids))
-                removed[j] = true
-
-            else
-                # ── Property 1: T(Xi) and T(Xj) are incomparable ────────────
-                push!(new_P, ItemsetNode(X_new, T_new.tids))
+function _filter_closed(itemsets::Vector{FrequentItemset})
+    keep = trues(length(itemsets))
+    sorted = sort(itemsets; by = fi -> (fi.support, length(fi.items)))
+    for i in eachindex(sorted)
+        xi = sorted[i]
+        for j in (i + 1):length(sorted)
+            xj = sorted[j]
+            xi.support == xj.support || continue
+            xjset = Set(xj.items)
+            if length(xj.items) > length(xi.items) && all(in(xjset), xi.items)
+                keep[i] = false
+                break
             end
         end
-
-        # Recurse on the children collected for Xi
-        _charm_extend!(new_P, closed, min_sup)
-
-        # Add Xi to closed itemsets if it is not already subsumed
-        node_Xi = ItemsetNode(Xi, Ti.tids)
-        if !_is_subsumed(node_Xi, closed)
-            push!(closed, ClosedItemset(node_Xi))
-        end
     end
+    [sorted[i] for i in eachindex(sorted) if keep[i]]
 end
 
+function mine_frequent_itemsets(transactions::Vector{<:AbstractVector}, min_support::Real;
+                                output_mode::Symbol=:all,
+                                implementation::Symbol=:bitset,
+                                max_itemset_length::Int=typemax(Int))::MiningResult
+    normalized = normalize_transactions(transactions)
+    n = length(normalized)
+    min_sup = resolve_min_support(min_support, n)
 
-"""
-    _merge_sorted(a, b) -> Vector{String}
-
-Return the sorted union of two already-sorted item vectors without duplicates.
-"""
-function _merge_sorted(a::Vector{String}, b::Vector{String})::Vector{String}
-    result = Vector{String}(undef, length(a) + length(b))
-    i, j, k = 1, 1, 1
-    while i <= length(a) && j <= length(b)
-        if a[i] < b[j]
-            result[k] = a[i]; i += 1
-        elseif a[i] > b[j]
-            result[k] = b[j]; j += 1
-        else
-            result[k] = a[i]; i += 1; j += 1   # skip duplicate
-        end
-        k += 1
+    vertical = if implementation == :bitset
+        _build_vertical_bitset(normalized)
+    elseif implementation == :basic
+        _build_vertical_basic(normalized)
+    else
+        error("implementation must be :basic or :bitset")
     end
-    while i <= length(a); result[k] = a[i]; i += 1; k += 1; end
-    while j <= length(b); result[k] = b[j]; j += 1; k += 1; end
-    return result[1:k-1]
+
+    T = implementation == :bitset ? BitVector : Set{Int}
+    candidates = Tuple{Int, T}[]
+    for item in sort(collect(keys(vertical)))
+        tid = vertical[item]
+        support(tid) >= min_sup && push!(candidates, (item, tid))
+    end
+
+    all_itemsets = FrequentItemset[]
+    _mine_all_frequent!(all_itemsets, Int[], candidates, min_sup, max_itemset_length)
+
+    unique_map = Dict{Tuple{Vararg{Int}}, Int}()
+    for fi in all_itemsets
+        unique_map[Tuple(fi.items)] = fi.support
+    end
+    deduped = [FrequentItemset(collect(k), v) for (k, v) in unique_map]
+    sort!(deduped; by = x -> (length(x.items), x.items, x.support))
+
+    final_itemsets = output_mode == :closed ? _filter_closed(deduped) : deduped
+    MiningResult(final_itemsets, min_sup, n, output_mode, implementation)
 end
 
-
-"""
-    _is_subsumed(node, closed) -> Bool
-
-Return `true` if `node` is already represented in `closed`, i.e. there
-exists a closed itemset with the *same tidset* that is a superset of
-`node.items`.  (Formally: node is not closed if a proper superset with
-equal support already exists.)
-"""
-function _is_subsumed(node::ItemsetNode, closed::Vector{ClosedItemset})::Bool
-    for ci in closed
-        if ci.support == support(node) &&
-           ci.tids == node.tidset.tids &&
-           all(item -> item in ci.items, node.items)
-            return true
-        end
-    end
-    return false
-end
+charm(transactions::Vector{<:AbstractVector}, min_support::Real; kwargs...) =
+    mine_frequent_itemsets(transactions, min_support; kwargs...)
