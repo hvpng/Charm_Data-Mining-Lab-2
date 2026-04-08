@@ -9,6 +9,17 @@ support(t::BitVector) = count(t)
 intersect_tidset(a::Set{Int}, b::Set{Int}) = intersect(a, b)
 intersect_tidset(a::BitVector, b::BitVector) = a .& b
 
+tidset_equal(a::Set{Int}, b::Set{Int}) = a == b
+tidset_equal(a::BitVector, b::BitVector) = a == b
+
+tidset_subseteq(a::Set{Int}, b::Set{Int}) = issubset(a, b)
+tidset_subseteq(a::BitVector, b::BitVector) = !any(a .& .!b)
+
+tidset_proper_subset(a, b) = tidset_subseteq(a, b) && !tidset_equal(a, b)
+tidset_proper_superset(a, b) = tidset_subseteq(b, a) && !tidset_equal(a, b)
+
+union_items(a::Vector{Int}, b::Vector{Int}) = sort(unique(vcat(a, b)))
+
 function _build_vertical_basic(transactions::Vector{Vector{Int}})
     tidsets = DefaultDict{Int, Set{Int}}(() -> Set{Int}())
     for (tid, txn) in enumerate(transactions)
@@ -29,6 +40,92 @@ function _build_vertical_bitset(transactions::Vector{Vector{Int}})
         end
     end
     tidsets
+end
+
+function _replace_all_with_union!(
+    P::Vector{Tuple{Vector{Int}, T}},
+    xi::Vector{Int},
+    x::Vector{Int},
+) where {T}
+    for k in eachindex(P)
+        items_k, tid_k = P[k]
+        all(in(Set(items_k)), xi) || continue
+        P[k] = (union_items(items_k, x), tid_k)
+    end
+end
+
+function _insert_ordered!(
+    Pi::Vector{Tuple{Vector{Int}, T}},
+    x::Vector{Int},
+    y::T,
+) where {T}
+    for (items, tid) in Pi
+        items == x && tidset_equal(tid, y) && return
+    end
+    push!(Pi, (x, y))
+    sort!(Pi; by = v -> v[1])
+end
+
+function _add_closed_if_not_subsumed!(
+    C::Vector{FrequentItemset},
+    x::Vector{Int},
+    supx::Int,
+)
+    xset = Set(x)
+    for fi in C
+        if fi.support == supx && length(fi.items) > length(x)
+            all(in(Set(fi.items)), x) && return
+        end
+    end
+    filter!(fi -> !(fi.support == supx && length(fi.items) < length(x) && all(in(xset), fi.items)), C)
+    push!(C, FrequentItemset(sort(unique(x)), supx))
+end
+
+function _charm_extend!(
+    P::Vector{Tuple{Vector{Int}, T}},
+    C::Vector{FrequentItemset},
+    min_sup::Int,
+) where {T}
+    i = 1
+    while i <= length(P)
+        xi, tid_i = P[i]
+        Pi = Tuple{Vector{Int}, T}[]
+        x = copy(xi)
+
+        j = i + 1
+        while j <= length(P)
+            xj, tid_j = P[j]
+            x_new = union_items(x, xj)
+            y = intersect_tidset(tid_i, tid_j)
+
+            if support(y) >= min_sup
+                if tidset_equal(tid_i, tid_j) # Property 1
+                    deleteat!(P, j)
+                    _replace_all_with_union!(P, xi, x_new)
+                    _replace_all_with_union!(Pi, xi, x_new)
+                    x = x_new
+                    xi = x
+                    continue
+                elseif tidset_proper_subset(tid_i, tid_j) # Property 2
+                    _replace_all_with_union!(P, xi, x_new)
+                    _replace_all_with_union!(Pi, xi, x_new)
+                    x = x_new
+                    xi = x
+                elseif tidset_proper_superset(tid_i, tid_j) # Property 3
+                    deleteat!(P, j)
+                    _insert_ordered!(Pi, x_new, y)
+                    continue
+                else # Property 4
+                    _insert_ordered!(Pi, x_new, y)
+                end
+            end
+            j += 1
+        end
+
+        !isempty(Pi) && _charm_extend!(Pi, C, min_sup)
+        _add_closed_if_not_subsumed!(C, x, support(tid_i))
+        i += 1
+    end
 end
 
 function _mine_all_frequent!(
@@ -58,24 +155,6 @@ function _mine_all_frequent!(
     end
 end
 
-function _filter_closed(itemsets::Vector{FrequentItemset})
-    keep = trues(length(itemsets))
-    sorted = sort(itemsets; by = fi -> (fi.support, length(fi.items)))
-    for i in eachindex(sorted)
-        xi = sorted[i]
-        for j in (i + 1):length(sorted)
-            xj = sorted[j]
-            xi.support == xj.support || continue
-            xjset = Set(xj.items)
-            if length(xj.items) > length(xi.items) && all(in(xjset), xi.items)
-                keep[i] = false
-                break
-            end
-        end
-    end
-    [sorted[i] for i in eachindex(sorted) if keep[i]]
-end
-
 function mine_frequent_itemsets(transactions::Vector{<:AbstractVector}, min_support::Real;
                                 output_mode::Symbol=:all,
                                 implementation::Symbol=:bitset,
@@ -99,18 +178,33 @@ function mine_frequent_itemsets(transactions::Vector{<:AbstractVector}, min_supp
         support(tid) >= min_sup && push!(candidates, (item, tid))
     end
 
-    all_itemsets = FrequentItemset[]
-    _mine_all_frequent!(all_itemsets, Int[], candidates, min_sup, max_itemset_length)
+    if output_mode == :all
+        all_itemsets = FrequentItemset[]
+        _mine_all_frequent!(all_itemsets, Int[], candidates, min_sup, max_itemset_length)
 
-    unique_map = Dict{Tuple{Vararg{Int}}, Int}()
-    for fi in all_itemsets
-        unique_map[Tuple(fi.items)] = fi.support
+        unique_map = Dict{Tuple{Vararg{Int}}, Int}()
+        for fi in all_itemsets
+            unique_map[Tuple(fi.items)] = fi.support
+        end
+        deduped = [FrequentItemset(collect(k), v) for (k, v) in unique_map]
+        sort!(deduped; by = x -> (length(x.items), x.items, x.support))
+        return MiningResult(deduped, min_sup, n, output_mode, implementation)
+    elseif output_mode == :closed
+        P = [(Int[item], tid) for (item, tid) in candidates]
+        C = FrequentItemset[]
+        _charm_extend!(P, C, min_sup)
+
+        unique_map = Dict{Tuple{Vararg{Int}}, Int}()
+        for fi in C
+            (length(fi.items) <= max_itemset_length) || continue
+            unique_map[Tuple(sort(fi.items))] = fi.support
+        end
+        closed = [FrequentItemset(collect(k), v) for (k, v) in unique_map]
+        sort!(closed; by = x -> (length(x.items), x.items, x.support))
+        return MiningResult(closed, min_sup, n, output_mode, implementation)
+    else
+        error("output_mode must be :all or :closed")
     end
-    deduped = [FrequentItemset(collect(k), v) for (k, v) in unique_map]
-    sort!(deduped; by = x -> (length(x.items), x.items, x.support))
-
-    final_itemsets = output_mode == :closed ? _filter_closed(deduped) : deduped
-    MiningResult(final_itemsets, min_sup, n, output_mode, implementation)
 end
 
 charm(transactions::Vector{<:AbstractVector}, min_support::Real; kwargs...) =

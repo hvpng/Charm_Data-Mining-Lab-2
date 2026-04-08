@@ -2,7 +2,7 @@
 
 From-scratch Julia (>=1.9) implementation of tidset-based frequent itemset mining with:
 - **All frequent itemsets** (`output_mode=:all`)
-- **Closed frequent itemsets** (`output_mode=:closed`)
+- **Closed frequent itemsets** (`output_mode=:closed`, using CHARM property-based search as in the original pseudocode)
 - Two implementations for comparison:
   - `:basic` (Set tidsets)
   - `:bitset` (BitVector tidsets, optimized)
