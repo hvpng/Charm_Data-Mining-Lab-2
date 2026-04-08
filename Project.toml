@@ -1,0 +1,12 @@
+name = "Charm"
+uuid = "5d3e0c2b-4a3f-4b8e-9c1d-7f6a2b0e8d4c"
+authors = ["hvpng"]
+version = "0.1.0"
+
+[deps]
+
+[extras]
+Test = "8dfed614-e22c-358e-ad0e-f04bc4af59a8"
+
+[targets]
+test = ["Test"]

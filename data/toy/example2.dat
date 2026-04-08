@@ -1,0 +1,11 @@
+# Toy transaction database — supermarket basket example
+# Format: one transaction per line, items separated by spaces
+# 8 transactions, 6 items {milk, bread, butter, beer, diapers, eggs}
+milk bread butter
+milk bread eggs
+milk bread butter eggs
+milk beer diapers
+milk beer diapers bread
+beer diapers
+bread butter eggs
+milk bread butter eggs beer

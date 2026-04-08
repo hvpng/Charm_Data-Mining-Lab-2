@@ -1,0 +1,13 @@
+# Toy transaction database — classic CHARM example
+# Format: one transaction per line, items separated by spaces
+# 10 transactions, 5 items {a, b, c, d, e}
+a b c d e
+a b c d
+a b c e
+a b d e
+a c d e
+b c d e
+a b c
+a b d
+a c d
+b c d
