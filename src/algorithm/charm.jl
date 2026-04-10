@@ -166,6 +166,7 @@ function _build_vertical_bitset(transactions::Vector{Vector{Int}})
     tidsets = Dict{Int, BitVector}(item => falses(n) for item in items)
     for (tid, txn) in enumerate(transactions)
         for item in txn
+            # Safe: tid ∈ 1:n from enumerate(transactions), and each bitvector has length n.
             @inbounds tidsets[item][tid] = true
         end
     end
@@ -348,6 +349,7 @@ function _mine_all_frequent!(
     maxlen::Int,
 ) where {T}
     for i in eachindex(candidates)
+        # Safe: i comes from eachindex(candidates).
         @inbounds item_i, tid_i = candidates[i]
         sup_i = support(tid_i)
         sup_i < min_sup && continue
@@ -358,6 +360,7 @@ function _mine_all_frequent!(
 
         suffix = Tuple{Int, T}[]
         for j in (i + 1):length(candidates)
+            # Safe: j iterates across valid candidate indices.
             @inbounds item_j, tid_j = candidates[j]
             tid_ij = intersect_tidset(tid_i, tid_j)
             support(tid_ij) >= min_sup && push!(suffix, (item_j, tid_ij))
