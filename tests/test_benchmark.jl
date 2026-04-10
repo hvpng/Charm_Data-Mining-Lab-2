@@ -3,6 +3,20 @@ using Test
 _REPO_ROOT = joinpath(@__DIR__, "..")
 include(joinpath(_REPO_ROOT, "src", "algorithm", "charm.jl"))
 
+"""
+    timed_run(f) -> Tuple{Any, Float64}
+
+Executes a function and returns its result and elapsed time in milliseconds.
+
+# Arguments
+- `f`: Zero-argument function to evaluate.
+
+# Returns
+- `(result, elapsed_ms)`: Function output and runtime in milliseconds.
+
+# Complexity
+`O(T_f)` where `T_f` is runtime of `f`.
+"""
 function timed_run(f)
     t0 = time()
     result = f()

@@ -1,11 +1,29 @@
 include(joinpath(@__DIR__, "..", "src", "algorithm", "charm.jl"))
 
 using DelimitedFiles
+using Random
 
 const ROOT = normpath(joinpath(@__DIR__, ".."))
 const OUTDIR = joinpath(ROOT, "results")
+const EVAL_RANDOM_SEED = 20260410
 mkpath(OUTDIR)
 
+"""
+    write_csv(path, header, rows)
+
+Writes tabular rows to a CSV file.
+
+# Arguments
+- `path`: Destination file path.
+- `header`: Iterable header columns.
+- `rows`: Iterable row tuples/vectors.
+
+# Returns
+Creates or overwrites the target CSV file and returns `nothing`.
+
+# Complexity
+`O(r * c)` where `r` is row count and `c` average columns per row.
+"""
 function write_csv(path, header, rows)
     open(path, "w") do f
         println(f, join(header, ","))
@@ -15,6 +33,21 @@ function write_csv(path, header, rows)
     end
 end
 
+"""
+    run_correctness(dataset::String, minsup::Real)
+
+Evaluates exact-match correctness ratio against SPMF reference output for one benchmark dataset.
+
+# Arguments
+- `dataset::String`: Dataset basename under `data/benchmark`.
+- `minsup::Real`: Minimum support threshold.
+
+# Returns
+- `(dataset, minsup, ratio, n_itemsets)` tuple, or `nothing` if inputs are missing.
+
+# Complexity
+Dominated by mining complexity for the selected dataset.
+"""
 function run_correctness(dataset::String, minsup::Real)
     input = joinpath(ROOT, "data", "benchmark", "$(dataset).txt")
     ref = joinpath(ROOT, "data", "reference", "spmf", "$(dataset)_minsup$(minsup).txt")
@@ -26,6 +59,21 @@ function run_correctness(dataset::String, minsup::Real)
     return (dataset, minsup, ratio, length(result))
 end
 
+"""
+    run_runtime_curves(dataset::String, minsups)
+
+Measures runtime of `:basic` and `:bitset` implementations across support thresholds.
+
+# Arguments
+- `dataset::String`: Dataset basename under `data/benchmark`.
+- `minsups`: Iterable support thresholds.
+
+# Returns
+- `Vector`: Runtime rows `(dataset, minsup, basic_ms, bitset_ms, n_itemsets)`.
+
+# Complexity
+Dominated by repeated mining runs over `minsups`.
+"""
 function run_runtime_curves(dataset::String, minsups)
     input = joinpath(ROOT, "data", "benchmark", "$(dataset).txt")
     isfile(input) || return []
@@ -40,6 +88,21 @@ function run_runtime_curves(dataset::String, minsups)
     rows
 end
 
+"""
+    run_scalability(dataset::String, minsup::Real)
+
+Measures runtime scalability as transaction count increases.
+
+# Arguments
+- `dataset::String`: Dataset basename under `data/benchmark`.
+- `minsup::Real`: Minimum support threshold.
+
+# Returns
+- `Vector`: Rows `(dataset, fraction, n_transactions, time_ms, n_itemsets)`.
+
+# Complexity
+Dominated by repeated mining runs over sampled dataset fractions.
+"""
 function run_scalability(dataset::String, minsup::Real)
     input = joinpath(ROOT, "data", "benchmark", "$(dataset).txt")
     isfile(input) || return []
@@ -54,6 +117,22 @@ function run_scalability(dataset::String, minsup::Real)
     rows
 end
 
+"""
+    run_avglen_impact(; n_txn=5000, n_items=400, minsup=0.02)
+
+Generates synthetic transactions with varying average length and measures runtime/memory impact.
+
+# Arguments
+- `n_txn`: Number of synthetic transactions.
+- `n_items`: Item ID range upper bound.
+- `minsup`: Minimum support threshold.
+
+# Returns
+- `Vector`: Rows `(avg_len, time_ms, n_itemsets, bytes)`.
+
+# Complexity
+Dominated by synthetic-data generation plus repeated mining runs.
+"""
 function run_avglen_impact(; n_txn=5000, n_items=400, minsup=0.02)
     rows = Any[]
     for avglen in (5, 10, 20, 30, 40)
@@ -64,7 +143,19 @@ function run_avglen_impact(; n_txn=5000, n_items=400, minsup=0.02)
     rows
 end
 
+"""
+    main()
+
+Evaluation entrypoint that writes all benchmark CSV reports under `results/`.
+
+# Returns
+Runs benchmark workflows with deterministic synthetic data generation and returns `nothing`.
+
+# Complexity
+Dominated by cumulative mining work across datasets and scenarios.
+"""
 function main()
+    Random.seed!(EVAL_RANDOM_SEED)
     benchmark_dir = joinpath(ROOT, "data", "benchmark")
     benchmark_names = [splitext(f)[1] for f in readdir(benchmark_dir) if endswith(f, ".txt")]
     minsup_points = [0.10, 0.08, 0.06, 0.05, 0.04, 0.03, 0.02]

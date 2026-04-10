@@ -3,6 +3,20 @@ using Test
 _REPO_ROOT = joinpath(@__DIR__, "..")
 include(joinpath(_REPO_ROOT, "src", "algorithm", "charm.jl"))
 
+"""
+    as_dict(r::MiningResult) -> Dict{Tuple{Vararg{Int}}, Int}
+
+Converts a mining result into a dictionary for equality checks in tests.
+
+# Arguments
+- `r::MiningResult`: Mining output under test.
+
+# Returns
+- `Dict{Tuple{Vararg{Int}}, Int}`: Itemset-to-support mapping.
+
+# Complexity
+`O(m)` where `m` is number of itemsets.
+"""
 function as_dict(r::MiningResult)
     Dict(Tuple(fi.items) => fi.support for fi in r.itemsets)
 end

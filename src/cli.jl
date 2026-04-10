@@ -5,6 +5,20 @@ Usage:
   julia --project=. src/cli.jl --input <path> --output <path> --minsup <int|float> [--mode all|closed] [--impl basic|bitset]
 """
 
+"""
+    parse_args(args::Vector{String}) -> Dict{String, Union{Nothing, String}}
+
+Parses CLI arguments for CHARM mining.
+
+# Arguments
+- `args::Vector{String}`: Raw command-line arguments.
+
+# Returns
+- `Dict`: Parsed option map containing `--input`, `--output`, `--minsup`, `--mode`, and `--impl`.
+
+# Complexity
+`O(n)` where `n` is number of CLI tokens.
+"""
 function parse_args(args::Vector{String})
     if length(args) == 1 && args[1] in ("--help", "-h")
         println(USAGE)
@@ -31,10 +45,38 @@ function parse_args(args::Vector{String})
     return opts
 end
 
+"""
+    parse_minsup(s::String) -> Real
+
+Parses minimum support from CLI text.
+
+# Arguments
+- `s::String`: Support value as integer or decimal string.
+
+# Returns
+- `Int` for absolute support, or `Float64` for relative support.
+
+# Complexity
+`O(|s|)`.
+"""
 function parse_minsup(s::String)
     occursin(".", s) ? parse(Float64, s) : parse(Int, s)
 end
 
+"""
+    main(args=ARGS)
+
+CLI entrypoint: parses inputs, runs mining, and writes SPMF output.
+
+# Arguments
+- `args`: Command-line arguments (`ARGS` by default).
+
+# Returns
+Runs side effects (I/O and mining) and returns `nothing`.
+
+# Complexity
+Dominated by mining complexity in `charm`.
+"""
 function main(args=ARGS)
     opts = parse_args(args)
     txns = read_spmf_transactions(opts["--input"])

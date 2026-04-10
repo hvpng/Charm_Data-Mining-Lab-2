@@ -2,38 +2,26 @@
 
 From-scratch Julia (>=1.9) implementation of tidset-based frequent itemset mining with:
 - **All frequent itemsets** (`output_mode=:all`)
-- **Closed frequent itemsets** (`output_mode=:closed`, using CHARM property-based search as in the original pseudocode)
-- Two implementations for comparison:
+- **Closed frequent itemsets** (`output_mode=:closed`, CHARM-style property search)
+- Two implementations:
   - `:basic` (Set tidsets)
   - `:bitset` (BitVector tidsets, optimized)
 
-## Project structure
+## Environment setup
 
-```
-Project.toml
-src/
-  algorithm/charm.jl
-  structures.jl
-  utils.jl
-  cli.jl
-tests/
-  test_correctness.jl
-  test_benchmark.jl
-data/
-  toy/
-  benchmark/
-  reference/spmf/
-scripts/
-  evaluate.jl
-results/
+### Requirements
+- Julia **1.9+**
+- No external FIM library is used
+
+### Install dependencies
+
+```bash
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
 
-## SPMF input/output format
+## How to run
 
-- Input: one transaction per line, space-separated integer items.
-- Output: `item1 item2 ... #SUP: n`
-
-## Run from Julia REPL
+### Run from Julia REPL
 
 ```julia
 include("src/algorithm/charm.jl")
@@ -41,37 +29,43 @@ include("src/algorithm/charm.jl")
 txns = read_spmf_transactions("data/toy/toy1.txt")
 result = charm(txns, 2; output_mode=:all, implementation=:bitset)
 print_results(result)
-write_spmf_itemsets(result, "out.txt")
+write_spmf_itemsets(result, "results/toy1_out.txt")
 ```
 
-## CLI usage
+### Run via CLI
 
 ```bash
 julia --project=. src/cli.jl \
   --input data/toy/toy1.txt \
-  --output results/toy1_out.txt \
+  --output results/toy1_cli_out.txt \
   --minsup 2 \
   --mode all \
   --impl bitset
 ```
 
+Options:
 - `--minsup`: absolute (e.g. `2`) or relative (e.g. `0.05`)
 - `--mode`: `all` or `closed`
 - `--impl`: `basic` or `bitset`
 
-## Tests
+## Unit tests (automatic)
+
+Run the full automated suite with:
 
 ```bash
-julia --project=. tests/test_correctness.jl
-julia --project=. tests/test_benchmark.jl
+julia --project=. test/runtests.jl
 ```
 
-- Correctness tests validate **5 datasets** against SPMF-format reference outputs.
-- Benchmark tests compare runtime curves and memory between baseline and optimized versions.
+This runs correctness, benchmark, and I/O tests end-to-end.
+
+## Reproducibility
+
+- The evaluation script sets a fixed random seed before synthetic-data generation.
+- Re-running `scripts/evaluate.jl` produces reproducible synthetic benchmark results.
 
 ## Evaluation workflow
 
-Place benchmark files in `data/benchmark/` with names:
+Place benchmark files in `data/benchmark/` with names such as:
 - `chess.txt`
 - `mushroom.txt`
 - `retail.txt`
@@ -84,10 +78,4 @@ Then run:
 julia --project=. scripts/evaluate.jl
 ```
 
-It produces CSVs in `results/` for:
-- correctness ratio vs reference
-- runtime vs minsup
-- number of frequent itemsets vs minsup
-- memory basic vs optimized
-- scalability by DB size
-- average transaction length impact
+Generated CSV reports are written to `results/`.
