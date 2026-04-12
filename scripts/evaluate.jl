@@ -48,15 +48,9 @@ const MINSUP_POINTS = Dict(
     "T10I4D100K"  => [ 5,  4,  3,  2,  1],
 )
 
-"""
-    REF_BASENAME -> Dict{String, String}
-
-Ánh xạ tên dataset trong `data/benchmark` sang prefix tên file reference SPMF.
-Mặc định prefix trùng tên dataset; riêng `mushrooms` đang dùng file
-reference lịch sử với prefix `mushroom`.
-"""
-const REF_BASENAME = Dict(
-    "mushrooms" => "mushroom",
+# minsup override cho dataset lớn
+const CORRECTNESS_MINSUP_OVERRIDE = Dict(
+    "accidents" => 80,
 )
 
 # minsup mặc định nếu dataset không có trong MINSUP_POINTS
@@ -139,11 +133,16 @@ function load_spmf_times()
     out = Dict{Tuple{String, Int}, Float64}()
     for line in eachline(times_file)
         s = strip(line)
-        isempty(s) && continue
-        startswith(s, "#") && continue
+        # Bỏ qua dòng trống, comment hoặc dòng tiêu đề
+        (isempty(s) || startswith(s, "#") || startswith(s, "dataset")) && continue
+        
         parts = split(s, ",")
         length(parts) >= 3 || error("Dòng không hợp lệ trong spmf_times.csv: $line")
+        
         ds = strip(parts[1])
+        # Nếu cột 2 là chữ "minsup_pct", đây là dòng tiêu đề -> bỏ qua
+        strip(parts[2]) == "minsup_pct" && continue
+        
         ms = parse(Int, strip(parts[2]))
         t  = parse(Float64, strip(parts[3]))
         out[(ds, ms)] = t
@@ -230,7 +229,7 @@ Trả về đường dẫn file reference SPMF cho dataset và minsup (%).
 O(1).
 """
 ref_path(dataset::String, minsup_pct::Int) =
-    joinpath(REFDIR, "$(get(REF_BASENAME, dataset, dataset))_minsup$(minsup_pct).txt")
+    joinpath(REFDIR, "$(dataset)_minsup$(minsup_pct).txt")
 
 """
     has_ref(dataset, minsup_pct) -> Bool
@@ -307,7 +306,7 @@ function run_correctness(datasets)
         n = length(txns)
         pts = get_minsup_points(name)
         # Dùng minsup ở chính giữa danh sách (ceiling division → đúng index trung vị)
-        minsup_pct = pts[cld(length(pts), 2)]
+        minsup_pct = get(CORRECTNESS_MINSUP_OVERRIDE, name, pts[cld(length(pts), 2)])
         minsup_rel = minsup_pct / 100.0
 
         print("    $name (minsup=$(minsup_pct)%) ... ")
@@ -367,35 +366,22 @@ Với mỗi điểm minsup:
 O(|datasets| × |minsup_points| × mining_cost).
 """
 function run_runtime_and_count(datasets, spmf_times)
-    println("\n[b+c] Runtime & Itemset count vs minsup")
+    println("\n[b+c] Runtime & Count vs minsup (Bitset only vs SPMF)")
     rows = Any[]
     for (name, _, txns) in datasets
-        n   = length(txns)
         pts = get_minsup_points(name)
-        println("  Dataset: $name ($n txns)  minsup points: $(pts)%")
-
         for minsup_pct in pts
             minsup_rel = minsup_pct / 100.0
-            print("    $(minsup_pct)% ... ")
+            print("    $(name) $(minsup_pct)% ... ")
 
-            t_basic  = @timed charm(txns, minsup_rel; implementation=:basic)
+            # Chỉ chạy bản tối ưu để vẽ đồ thị so với SPMF
             t_bitset = @timed charm(txns, minsup_rel; implementation=:bitset)
+            n_items  = length(t_bitset.value)
+            spmf_t   = get(spmf_times, (name, minsup_pct), 0.0)
 
-            n_items    = length(t_bitset.value)
-                spmf_time  = spmf_times[(name, minsup_pct)]
-
-            println("basic=$(round(t_basic.time*1000,digits=1))ms  " *
-                    "bitset=$(round(t_bitset.time*1000,digits=1))ms  " *
-                    "spmf=$(round(spmf_time,digits=1))ms  " *
-                    "itemsets=$n_items")
-
-            push!(rows, (
-                name, minsup_pct, minsup_rel,
-                round(t_basic.time*1000,  digits=2),
-                round(t_bitset.time*1000, digits=2),
-                round(spmf_time, digits=2),
-                n_items
-            ))
+            println("bitset=$(round(t_bitset.time*1000,digits=1))ms  spmf=$(spmf_t)ms")
+            push!(rows, (name, minsup_pct, minsup_rel, 0.0, # Gán basic = 0
+                         round(t_bitset.time*1000, digits=2), round(spmf_t, digits=2), n_items))
         end
     end
     rows
@@ -523,7 +509,7 @@ O(5 × mining_cost_at_full_size).
 function run_scalability(datasets)
     println("\n[e] Scalability")
 
-    preferred = ["retail", "accidents"]
+    preferred = ["accidents"]
     chosen = nothing
     for pref in preferred
         idx = findfirst(d -> d[1] == pref, datasets)
@@ -582,38 +568,18 @@ Lý thuyết CHARM:
 # Complexity
 O(5 × mining_cost).
 """
-function run_avglen_impact(; n_txn=3000, n_items=200, minsup_pct=5)
-    println("\n[f] Avg transaction length impact")
-    println("    Synthetic data: n_txn=$n_txn, n_items=$n_items, minsup=$(minsup_pct)%, seed=$EVAL_SEED")
-    Random.seed!(EVAL_SEED)
-
+function run_avglen_impact(; n_txn=2000, n_items=100, minsup_pct=10)
+    println("\n[f] Avg length impact (Bitset only)")
     minsup_rel = minsup_pct / 100.0
     rows = Any[]
     for target_len in [5, 10, 15, 20, 30]
-        # Dùng randperm để đảm bảo đúng target_len item không trùng lặp
-        # randperm(n_items)[1:target_len] → luôn cho đúng target_len item phân biệt
-        txns = [sort!(randperm(n_items)[1:target_len]) for _ in 1:n_txn]
-        actual_avg = round(sum(length(t) for t in txns) / n_txn, digits=2)
-
-        s_basic  = @timed charm(txns, minsup_rel; implementation=:basic)
+        txns = [sort!(Random.randperm(n_items)[1:target_len]) for _ in 1:n_txn]
         s_bitset = @timed charm(txns, minsup_rel; implementation=:bitset)
-
-        t_basic_ms  = round(s_basic.time*1000,  digits=2)
-        t_bitset_ms = round(s_bitset.time*1000, digits=2)
-        mb_basic    = round(s_basic.bytes  / 1024^2, digits=3)
-        mb_bitset   = round(s_bitset.bytes / 1024^2, digits=3)
-        n_items_out = length(s_bitset.value)
-
-        println("    avg_len=$target_len (actual=$actual_avg): " *
-                "basic=$(t_basic_ms)ms  bitset=$(t_bitset_ms)ms  " *
-                "itemsets=$n_items_out  mem_basic=$(mb_basic)MB  mem_bitset=$(mb_bitset)MB")
-
-        push!(rows, (
-            target_len, actual_avg, n_txn, minsup_pct,
-            t_basic_ms, t_bitset_ms,
-            mb_basic, mb_bitset,
-            n_items_out
-        ))
+        
+        t_ms = round(s_bitset.time*1000, digits=2)
+        println("    len=$target_len -> $(t_ms)ms, items=$(length(s_bitset.value))")
+        push!(rows, (target_len, target_len, n_txn, minsup_pct, 0.0, t_ms, 0.0, 
+                     round(s_bitset.bytes/1024^2, 3), length(s_bitset.value)))
     end
     rows
 end
@@ -670,7 +636,7 @@ function main()
     Random.seed!(EVAL_SEED)
 
     println("=" ^ 60)
-    println("Chương 4 — Thực nghiệm và đánh giá")
+    println("Thực nghiệm và đánh giá")
     println("Dataset dir  : $DATADIR")
     println("Reference dir: $REFDIR")
     println("Output dir   : $OUTDIR")

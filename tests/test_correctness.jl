@@ -136,10 +136,12 @@ const CORRECTNESS_DATASETS = [
 
     # ── Benchmark datasets ────────────────────────────────────────────────
     ("chess", joinpath(DATA, "benchmark", "chess.txt"),
-        [(Int(round(0.80 * 3196)), "chess_minsup80.txt")]),
+        [(Int(round(0.50 * 3196)), "chess_minsup50.txt"),
+         (Int(round(0.80 * 3196)), "chess_minsup80.txt")]),
 
-    # ("mushrooms", joinpath(DATA, "benchmark", "mushrooms.txt"),
-    #     [(Int(round(0.50 * 8416)), "mushroom_minsup50.txt")]),
+    ("mushrooms", joinpath(DATA, "benchmark", "mushrooms.txt"),
+        [(Int(round(0.20 * 8416)), "mushrooms_minsup20.txt"),
+         (Int(round(0.50 * 8416)), "mushrooms_minsup50.txt")]),
 
     # ("accidents", joinpath(DATA, "benchmark", "accidents.txt"),
     #     [(Int(round(0.20 * 340183)), "accidents_minsup20.txt"),
@@ -150,9 +152,9 @@ const CORRECTNESS_DATASETS = [
     #     [(Int(round(0.01 * 88162)), "retail_minsup1.txt"),
     #      (Int(round(0.05 * 88162)), "retail_minsup5.txt")]),
 
-    # ("T10I4D100K", joinpath(DATA, "benchmark", "T10I4D100K.txt"),
-    #     [(Int(round(0.01 * 100000)), "T10I4D100K_minsup1.txt"),
-    #      (Int(round(0.05 * 100000)), "T10I4D100K_minsup5.txt")]),
+    ("T10I4D100K", joinpath(DATA, "benchmark", "T10I4D100K.txt"),
+        [(Int(round(0.01 * 100000)), "T10I4D100K_minsup1.txt"),
+         (Int(round(0.05 * 100000)), "T10I4D100K_minsup5.txt")]),
 ]
 
 # ─────────────────────────────────────────────
