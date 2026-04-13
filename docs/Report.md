@@ -294,3 +294,4 @@ Do dataset retail dang an danh theo ID item, bao cao dien giai theo huong hanh v
 
 - Tat ca ket qua tren duoc tao bang cai dat CHARM cua nhom trong repo nay.
 - Khong dung output tu thu vien FIM co san de tao ket qua Chuong 5.
+d
