@@ -1,6 +1,7 @@
 # Charm_Data-Mining-Lab-2
 
 From-scratch Julia (>=1.9) implementation of tidset-based frequent itemset mining with:
+
 - **All frequent itemsets** (`output_mode=:all`)
 - **Closed frequent itemsets** (`output_mode=:closed`, CHARM-style property search)
 - Two implementations:
@@ -10,6 +11,7 @@ From-scratch Julia (>=1.9) implementation of tidset-based frequent itemset minin
 ## Environment setup
 
 ### Requirements
+
 - Julia **1.9+**
 - No external FIM library is used
 
@@ -44,6 +46,7 @@ julia --project=. src/cli.jl \
 ```
 
 Options:
+
 - `--minsup`: absolute (e.g. `2`) or relative (e.g. `0.05`)
 - `--mode`: `all` or `closed`
 - `--impl`: `basic` or `bitset`
@@ -66,6 +69,7 @@ This runs correctness, benchmark, and I/O tests end-to-end.
 ## Evaluation workflow
 
 Place benchmark files in `data/benchmark/` with names such as:
+
 - `chess.txt`
 - `mushroom.txt`
 - `retail.txt`
@@ -79,3 +83,50 @@ julia --project=. scripts/evaluate.jl
 ```
 
 Generated CSV reports are written to `results/`.
+
+## Chapter 5 (Optional) - Practical Application Demo
+
+This project includes a practical Market Basket Analysis demo on a real retail dataset,
+using the team's own CHARM implementation (no external FIM mining library output).
+
+### 1) Run Chapter 5 experiment
+
+```bash
+julia --project=. scripts/market_basket_rules.jl
+```
+
+Expected artifacts:
+
+- `results/retail_top10_rules.csv` (top-10 association rules sorted by lift)
+
+Expected console summary (example):
+
+- number of transactions
+- effective `minsup(abs)`
+- `minconf`
+- number of closed itemsets
+- number of generated rules
+
+### 2) Verify Chapter 5 results (for instructors)
+
+Run independent verification of support/confidence/lift values in the top-10 CSV:
+
+```bash
+julia --project=. scripts/verify_top10_rules.jl
+```
+
+Expected output:
+
+```text
+Top10 verification: PASS
+```
+
+This verifier recomputes all metrics directly from `data/benchmark/retail.txt`
+and checks equality with `results/retail_top10_rules.csv`.
+
+### 3) Quick grading checklist
+
+- Run command in step (1) without errors.
+- Confirm file `results/retail_top10_rules.csv` is generated.
+- Run command in step (2) and confirm `Top10 verification: PASS`.
+- Open `docs/Report.md` section `3.5` for interpretation/business discussion.
