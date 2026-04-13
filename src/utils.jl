@@ -1,5 +1,26 @@
 using DataStructures: OrderedDict
 
+# [Mục 4.1.4] Tính mã băm cho Tidset - dùng hash() của Julia (tối ưu hơn sum() đơn thuần)
+@inline function calculate_tid_hash(tidset::BitVector)
+    return hash(tidset.chunks)
+end
+
+@inline function calculate_tid_hash(tidset::Set{Int})
+    # Với Set, ta cần tính tổng để đảm bảo tính chất hoán vị không đổi
+    h = UInt64(0)
+    for tid in tidset
+        h += UInt64(tid)
+    end
+    return h
+end
+
+# [Mục 4.1.3] Branch Reordering: Sắp xếp Item theo support tăng dần
+# Giúp tăng xác suất rơi vào Property 1 & 2 để chặt nhánh sớm
+function sort_items_by_support(items::Vector{Int}, db)
+    # db là Dict chứa Tidset của mỗi item
+    return sort(items, by = x -> length(db[x]))
+end
+
 """
     normalize_transactions(transactions::Vector{<:AbstractVector}) -> Vector{Vector{Int}}
 

@@ -2,30 +2,25 @@ include(joinpath(@__DIR__, "..", "structures.jl"))
 include(joinpath(@__DIR__, "..", "utils.jl"))
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PHƯƠNG THỨC GENERIC CHO TIDSET (Dùng Multiple Dispatch để tối ưu)
+# PHƯƠNG THỨC GENERIC CHO TIDSET 
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Hỗ trợ BitVector (Tối ưu hóa bit-level)
+# Hỗ trợ BitVector
 @inline _support(t::BitVector) = count(t)
 @inline _intersect_tidset(a::BitVector, b::BitVector) = a .& b
 @inline _tidset_equal(a::BitVector, b::BitVector) = a == b
 
-function _tidset_subseteq(a::BitVector, b::BitVector)::Bool
-    c_a, c_b = a.chunks, b.chunks
-    @inbounds for i in eachindex(c_a)
-        (c_a[i] & ~c_b[i]) != 0 && return false
-    end
-    return true
-end
+# ĐÃ SỬA LỖI BIT RÁC: Dùng phép toán bitwise chuẩn của Julia
+@inline _tidset_subseteq(a::BitVector, b::BitVector) = (a .& b) == a
 
-# Hỗ trợ Set{Int} (Dành cho bản :basic so sánh)
+# Hỗ trợ Set{Int}
 @inline _support(t::Set{Int}) = length(t)
 @inline _intersect_tidset(a::Set{Int}, b::Set{Int}) = intersect(a, b)
 @inline _tidset_equal(a::Set{Int}, b::Set{Int}) = a == b
 @inline _tidset_subseteq(a::Set{Int}, b::Set{Int}) = issubset(a, b)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HELPER FUNCTIONS (Sorted Itemsets)
+# HELPER FUNCTIONS 
 # ─────────────────────────────────────────────────────────────────────────────
 
 function _items_subseteq_sorted(a::Vector{Int}, b::Vector{Int})::Bool
@@ -52,13 +47,16 @@ function _replace_prefix!(list, old_p::Vector{Int}, new_p::Vector{Int})
     end
 end
 
+# Dùng Support làm Key cho Hash Table: Tránh hoàn toàn Hash Collision
+# Vì X subset Y và sup(X) == sup(Y) => t(X) == t(Y) tuyệt đối.
 function _is_subsumed(C_dict::Dict{Int, Vector{Vector{Int}}}, x::Vector{Int}, sup_x::Int)::Bool
     !haskey(C_dict, sup_x) && return false
     candidates = C_dict[sup_x]
     n_x = length(x)
     @inbounds for i in eachindex(candidates)
         target = candidates[i]
-        if length(target) > n_x && _items_subseteq_sorted(x, target)
+        # ĐÃ SỬA LỖI TRÙNG LẶP: Đổi > thành >= để xóa các tập giống hệt nhau
+        if length(target) >= n_x && _items_subseteq_sorted(x, target)
             return true
         end
     end
@@ -66,7 +64,7 @@ function _is_subsumed(C_dict::Dict{Int, Vector{Vector{Int}}}, x::Vector{Int}, su
 end
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CHARM EXTEND (Generic Implementation)
+# CHARM EXTEND 
 # ─────────────────────────────────────────────────────────────────────────────
 
 function _charm_extend!(
@@ -90,28 +88,15 @@ function _charm_extend!(
                 X_cand = sort!(union(xi, xj))
                 
                 if _tidset_equal(tid_xi, tid_xj)
-                    # Property 1
-                    old_xi = copy(xi)
-                    X = X_cand
-                    xi = X_cand
-                    _replace_prefix!(P, old_xi, X)
-                    _replace_prefix!(Pi, old_xi, X)
-                    deleteat!(P, j)
-                    continue
+                    old_xi = copy(xi); X = X_cand; xi = X_cand
+                    _replace_prefix!(P, old_xi, X); _replace_prefix!(Pi, old_xi, X)
+                    deleteat!(P, j); continue
                 elseif _tidset_subseteq(tid_xi, tid_xj)
-                    # Property 2
-                    old_xi = copy(xi)
-                    X = X_cand
-                    xi = X_cand
-                    _replace_prefix!(P, old_xi, X)
-                    _replace_prefix!(Pi, old_xi, X)
+                    old_xi = copy(xi); X = X_cand; xi = X_cand
+                    _replace_prefix!(P, old_xi, X); _replace_prefix!(Pi, old_xi, X)
                 elseif _tidset_subseteq(tid_xj, tid_xi)
-                    # Property 3
-                    deleteat!(P, j)
-                    push!(Pi, (X_cand, y_tid))
-                    continue
+                    deleteat!(P, j); push!(Pi, (X_cand, y_tid)); continue
                 else
-                    # Property 4
                     push!(Pi, (X_cand, y_tid))
                 end
             end
@@ -145,40 +130,39 @@ function charm(
     C_dict = Dict{Int, Vector{Vector{Int}}}()
 
     if implementation == :bitset
-        # Cài đặt BitVector: Tiết kiệm bộ nhớ, AND cực nhanh
         db = Dict{Int, BitVector}(item => falses(n) for item in items_list)
-        for (tid, txn) in enumerate(normalized)
-            for item in txn
-                @inbounds db[item][tid] = true
-            end
+        for (tid, txn) in enumerate(normalized), item in txn
+            @inbounds db[item][tid] = true
         end
+        
+        # ĐÃ SỬA LỖI SẮP XẾP NHÁNH: count() thay vì length()
+        sort!(items_list, by = x -> count(db[x]))
         
         P = Tuple{Vector{Int}, BitVector}[]
         for item in items_list
             tids = db[item]
-            _support(tids) >= abs_min_sup && push!(P, ([item], tids))
+            count(tids) >= abs_min_sup && push!(P, ([item], tids))
         end
         _charm_extend!(P, C_dict, abs_min_sup)
     else
-        # Cài đặt :basic (Set): Tốn bộ nhớ hơn (vượt test reduction)
         db_basic = Dict{Int, Set{Int}}()
-        for (tid, txn) in enumerate(normalized)
-            for item in txn
-                push!(get!(Set{Int}, db_basic, item), tid)
-            end
+        for (tid, txn) in enumerate(normalized), item in txn
+            push!(get!(Set{Int}, db_basic, item), tid)
         end
+        
+        # ĐÃ SỬA LỖI SẮP XẾP NHÁNH: get() length thay vì lỗi
+        sort!(items_list, by = x -> length(get(db_basic, x, Set{Int}())))
         
         P_basic = Tuple{Vector{Int}, Set{Int}}[]
         for item in items_list
             if haskey(db_basic, item)
                 tids = db_basic[item]
-                _support(tids) >= abs_min_sup && push!(P_basic, ([item], tids))
+                length(tids) >= abs_min_sup && push!(P_basic, ([item], tids))
             end
         end
         _charm_extend!(P_basic, C_dict, abs_min_sup)
     end
 
-    # Thu thập kết quả
     final_itemsets = FrequentItemset[]
     for (sup, itemsets) in C_dict
         for items in itemsets

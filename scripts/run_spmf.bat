@@ -57,64 +57,64 @@ REM ============================================================
 
 
 REM ── toy1 ────────────────────────────────────────────────────
-if exist "%INDIRTOY%\toy1.txt" (
-    echo.
-    echo [toy1]
-    set "MINSUP=0.4"
-    echo   MINSUP=0.4 ...
-    java -jar %SPMF% run Charm_bitset %INDIRTOY%\toy1.txt %OUTDIR%\toy1_minsup%%40.txt !MINSUP!
-    echo   -^> %OUTDIR%\toy1_minsup%%40.txt
-) else (
-    echo [SKIP] toy1.txt không tồn tại trong %INDIRTOY%\
-)
+@REM if exist "%INDIRTOY%\example1.txt" (
+@REM     echo.
+@REM     echo [toy1]
+@REM     set "MINSUP=0.5"
+@REM     echo   MINSUP=0.5 ...
+@REM     java -jar %SPMF% run Charm_bitset %INDIRTOY%\example1.txt %OUTDIR%\example1_minsup%%50.txt !MINSUP!
+@REM     echo   -^> %OUTDIR%\example1_minsup%%50.txt
+@REM ) else (
+@REM     echo [SKIP] example1.txt không tồn tại trong %INDIRTOY%\
+@REM )
 
-REM ── toy2 ────────────────────────────────────────────────────
-if exist "%INDIRTOY%\toy2.txt" (
-    echo.
-    echo [toy2]
-    set "MINSUP=0.4"
-    echo   MINSUP=0.4 ...
-    java -jar %SPMF% run Charm_bitset %INDIRTOY%\toy2.txt %OUTDIR%\toy2_minsup%%40.txt !MINSUP!
-    echo   -^> %OUTDIR%\toy2_minsup%%40.txt
-) else (
-    echo [SKIP] toy2.txt không tồn tại trong %INDIRTOY%\
-)
+@REM REM ── toy2 ────────────────────────────────────────────────────
+@REM if exist "%INDIRTOY%\example2.txt" (
+@REM     echo.
+@REM     echo [toy2]
+@REM     set "MINSUP=0.5"
+@REM     echo   MINSUP=0.5 ...
+@REM     java -jar %SPMF% run Charm_bitset %INDIRTOY%\example2.txt %OUTDIR%\example2_minsup%%50.txt !MINSUP!
+@REM     echo   -^> %OUTDIR%\example2_minsup%%50.txt
+@REM ) else (
+@REM     echo [SKIP] example2.txt không tồn tại trong %INDIRTOY%\
+@REM )
 
-REM ── toy3 ────────────────────────────────────────────────────
-if exist "%INDIRTOY%\toy3.txt" (
-    echo.
-    echo [toy3]
-    set "MINSUP=0.4"
-    echo   MINSUP=0.4 ...
-    java -jar %SPMF% run Charm_bitset %INDIRTOY%\toy3.txt %OUTDIR%\toy3_minsup%%40.txt !MINSUP!
-    echo   -^> %OUTDIR%\toy3_minsup%%40.txt
-) else (
-    echo [SKIP] toy3.txt không tồn tại trong %INDIRTOY%\
-)
+@REM REM ── toy3 ────────────────────────────────────────────────────
+@REM if exist "%INDIRTOY%\toy3.txt" (
+@REM     echo.
+@REM     echo [toy3]
+@REM     set "MINSUP=0.4"
+@REM     echo   MINSUP=0.4 ...
+@REM     java -jar %SPMF% run Charm_bitset %INDIRTOY%\toy3.txt %OUTDIR%\toy3_minsup%%40.txt !MINSUP!
+@REM     echo   -^> %OUTDIR%\toy3_minsup%%40.txt
+@REM ) else (
+@REM     echo [SKIP] toy3.txt không tồn tại trong %INDIRTOY%\
+@REM )
 
-REM ── toy4 ────────────────────────────────────────────────────
-if exist "%INDIRTOY%\toy4.txt" (
-    echo.
-    echo [toy4]
-    set "MINSUP=0.4"
-    echo   MINSUP=0.4 ...
-    java -jar %SPMF% run Charm_bitset %INDIRTOY%\toy4.txt %OUTDIR%\toy4_minsup%%40.txt !MINSUP!
-    echo   -^> %OUTDIR%\toy4_minsup%%40.txt
-) else (
-    echo [SKIP] toy4.txt không tồn tại trong %INDIRTOY%\
-)
+@REM REM ── toy4 ────────────────────────────────────────────────────
+@REM if exist "%INDIRTOY%\toy4.txt" (
+@REM     echo.
+@REM     echo [toy4]
+@REM     set "MINSUP=0.4"
+@REM     echo   MINSUP=0.4 ...
+@REM     java -jar %SPMF% run Charm_bitset %INDIRTOY%\toy4.txt %OUTDIR%\toy4_minsup%%40.txt !MINSUP!
+@REM     echo   -^> %OUTDIR%\toy4_minsup%%40.txt
+@REM ) else (
+@REM     echo [SKIP] toy4.txt không tồn tại trong %INDIRTOY%\
+@REM )
 
-REM ── toy5 ────────────────────────────────────────────────────
-if exist "%INDIRTOY%\toy5.txt" (
-    echo.
-    echo [toy5]
-    set "MINSUP=0.4"
-    echo   MINSUP=0.4 ...
-    java -jar %SPMF% run Charm_bitset %INDIRTOY%\toy5.txt %OUTDIR%\toy5_minsup%%40.txt !MINSUP!
-    echo   -^> %OUTDIR%\toy5_minsup%%40.txt
-) else (
-    echo [SKIP] toy5.txt không tồn tại trong %INDIRTOY%\
-)
+@REM REM ── toy5 ────────────────────────────────────────────────────
+@REM if exist "%INDIRTOY%\toy5.txt" (
+@REM     echo.
+@REM     echo [toy5]
+@REM     set "MINSUP=0.4"
+@REM     echo   MINSUP=0.4 ...
+@REM     java -jar %SPMF% run Charm_bitset %INDIRTOY%\toy5.txt %OUTDIR%\toy5_minsup%%40.txt !MINSUP!
+@REM     echo   -^> %OUTDIR%\toy5_minsup%%40.txt
+@REM ) else (
+@REM     echo [SKIP] toy5.txt không tồn tại trong %INDIRTOY%\
+@REM )
 
 @REM echo ============================================================
 @REM echo  Bắt đầu chạy SPMF CHARM
@@ -123,19 +123,19 @@ if exist "%INDIRTOY%\toy5.txt" (
 @REM echo ============================================================
 
 
-@REM REM ── chess ────────────────────────────────────────────────────
-@REM if exist "%INDIR%\chess.txt" (
-@REM     echo.
-@REM     echo [chess]
-@REM     for %%M in (80 70 60 50 40 30 20) do (
-@REM         set "MINSUP=%%M%%"
-@REM         echo   minsup=%%M%% ...
-@REM         java -jar %SPMF% run Charm_bitset %INDIR%\chess.txt %OUTDIR%\chess_minsup%%M.txt !MINSUP!
-@REM         echo   -^> %OUTDIR%\chess_minsup%%M.txt
-@REM     )
-@REM ) else (
-@REM     echo [SKIP] chess.txt không tồn tại trong %INDIR%\
-@REM )
+REM ── chess ────────────────────────────────────────────────────
+if exist "%INDIR%\chess.txt" (
+    echo.
+    echo [chess]
+    for %%M in (90) do (
+        set "MINSUP=%%M%%"
+        echo   minsup=%%M%% ...
+        java -jar %SPMF% run Charm_bitset %INDIR%\chess.txt %OUTDIR%\chess_minsup%%M.txt !MINSUP!
+        echo   -^> %OUTDIR%\chess_minsup%%M.txt
+    )
+) else (
+    echo [SKIP] chess.txt không tồn tại trong %INDIR%\
+)
 
 @REM REM ── mushroom ─────────────────────────────────────────────────
 @REM if exist "%INDIR%\mushrooms.txt" (
@@ -151,25 +151,25 @@ if exist "%INDIRTOY%\toy5.txt" (
 @REM     echo [SKIP] mushrooms.txt không tồn tại trong %INDIR%\
 @REM )
 
-@REM REM ── retail ───────────────────────────────────────────────────
-@REM if exist "%INDIR%\retail.txt" (
-@REM     echo.
-@REM     echo [retail]
-@REM     for %%M in (5 4 3 2 1) do (
-@REM         set "MINSUP=%%M%%"
-@REM         echo   minsup=%%M%% ...
-@REM         java -jar %SPMF% run Charm_bitset %INDIR%\retail.txt %OUTDIR%\retail_minsup%%M.txt !MINSUP!
-@REM         echo   -^> %OUTDIR%\retail_minsup%%M.txt
-@REM     )
-@REM ) else (
-@REM     echo [SKIP] retail.txt không tồn tại trong %INDIR%\
-@REM )
+REM ── retail ───────────────────────────────────────────────────
+if exist "%INDIR%\retail.txt" (
+    echo.
+    echo [retail]
+    for %%M in (7 6) do (
+        set "MINSUP=%%M%%"
+        echo   minsup=%%M%% ...
+        java -jar %SPMF% run Charm_bitset %INDIR%\retail.txt %OUTDIR%\retail_minsup%%M.txt !MINSUP!
+        echo   -^> %OUTDIR%\retail_minsup%%M.txt
+    )
+) else (
+    echo [SKIP] retail.txt không tồn tại trong %INDIR%\
+)
 
-@REM REM ── accidents ────────────────────────────────────────────────
+REM ── accidents ────────────────────────────────────────────────
 @REM if exist "%INDIR%\accidents.txt" (
 @REM     echo.
 @REM     echo [accidents]
-@REM     for %%M in (80 70 60 50 40 30 20) do (
+@REM     for %%M in (90) do (
 @REM         set "MINSUP=%%M%%"
 @REM         echo   minsup=%%M%% ...
 @REM         java -jar %SPMF% run Charm_bitset %INDIR%\accidents.txt %OUTDIR%\accidents_minsup%%M.txt !MINSUP!
@@ -179,19 +179,19 @@ if exist "%INDIRTOY%\toy5.txt" (
 @REM     echo [SKIP] accidents.txt không tồn tại trong %INDIR%\
 @REM )
 
-@REM REM ── T10I4D100K ───────────────────────────────────────────────
-@REM if exist "%INDIR%\T10I4D100K.txt" (
-@REM     echo.
-@REM     echo [T10I4D100K]
-@REM     for %%M in (5 4 3 2 1) do (
-@REM         set "MINSUP=%%M%%"
-@REM         echo   minsup=%%M%% ...
-@REM         java -jar %SPMF% run Charm_bitset %INDIR%\T10I4D100K.txt %OUTDIR%\T10I4D100K_minsup%%M.txt !MINSUP!
-@REM         echo   -^> %OUTDIR%\T10I4D100K_minsup%%M.txt
-@REM     )
-@REM ) else (
-@REM     echo [SKIP] T10I4D100K.txt không tồn tại trong %INDIR%\
-@REM )
+REM ── T10I4D100K ───────────────────────────────────────────────
+if exist "%INDIR%\T10I4D100K.txt" (
+    echo.
+    echo [T10I4D100K]
+    for %%M in (7 6) do (
+        set "MINSUP=%%M%%"
+        echo   minsup=%%M%% ...
+        java -jar %SPMF% run Charm_bitset %INDIR%\T10I4D100K.txt %OUTDIR%\T10I4D100K_minsup%%M.txt !MINSUP!
+        echo   -^> %OUTDIR%\T10I4D100K_minsup%%M.txt
+    )
+) else (
+    echo [SKIP] T10I4D100K.txt không tồn tại trong %INDIR%\
+)
 
 echo.
 echo ============================================================

@@ -41,11 +41,11 @@ mkpath(OUTDIR)
 # minsup points cho từng dataset — phải KHỚP với run_spmf.bat
 # key = tên dataset, value = vector minsup dạng Int (%) giảm dần
 const MINSUP_POINTS = Dict(
-    "chess"       => [80, 70, 60, 50, 40, 30, 20],
+    "chess"       => [90, 80, 70, 60, 50, 40, 30],
     "mushrooms"   => [50, 40, 30, 20, 15, 10,  5],
-    "retail"      => [ 5,  4,  3,  2,  1],
-    "accidents"   => [80, 70, 60, 50, 40, 30, 20],
-    "T10I4D100K"  => [ 5,  4,  3,  2,  1],
+    "retail"      => [7,  6,  5,  4,  3,  2,  1],
+    # "accidents"   => [90, 80, 70, 60, 50, 40, 30],
+    "T10I4D100K"  => [7,  6,  5,  4,  3,  2,  1],
 )
 
 # minsup override cho dataset lớn
@@ -305,7 +305,7 @@ function run_correctness(datasets)
     for (name, _, txns) in datasets
         n = length(txns)
         pts = get_minsup_points(name)
-        # Dùng minsup ở chính giữa danh sách (ceiling division → đúng index trung vị)
+        # Dùng minsup ở chính giữa danh sách
         minsup_pct = get(CORRECTNESS_MINSUP_OVERRIDE, name, pts[cld(length(pts), 2)])
         minsup_rel = minsup_pct / 100.0
 
@@ -509,7 +509,7 @@ O(5 × mining_cost_at_full_size).
 function run_scalability(datasets)
     println("\n[e] Scalability")
 
-    preferred = ["accidents"]
+    preferred = ["retail"]
     chosen = nothing
     for pref in preferred
         idx = findfirst(d -> d[1] == pref, datasets)
@@ -521,7 +521,7 @@ function run_scalability(datasets)
     # Fallback: dataset lớn nhất
     isnothing(chosen) && (chosen = datasets[argmax(d -> length(d[2]), datasets)])
 
-    name, txns = chosen
+    name, _, txns = chosen
     pts = get_minsup_points(name)
     minsup_pct = pts[1]  # minsup cao nhất → an toàn khi chạy full dataset
     minsup_rel = minsup_pct / 100.0
@@ -579,7 +579,7 @@ function run_avglen_impact(; n_txn=2000, n_items=100, minsup_pct=10)
         t_ms = round(s_bitset.time*1000, digits=2)
         println("    len=$target_len -> $(t_ms)ms, items=$(length(s_bitset.value))")
         push!(rows, (target_len, target_len, n_txn, minsup_pct, 0.0, t_ms, 0.0, 
-                     round(s_bitset.bytes/1024^2, 3), length(s_bitset.value)))
+                     round(s_bitset.bytes/1024^2, digits=3), length(s_bitset.value)))
     end
     rows
 end
@@ -658,44 +658,50 @@ function main()
         return
     end
 
+    acc_idx = findfirst(d -> d[1] == "accidents", datasets)
+    if !isnothing(acc_idx)
+        acc_ds = splice!(datasets, acc_idx)
+        push!(datasets, acc_ds)
+    end
+
     spmf_times = load_spmf_times()
     validate_chapter4_requirements(datasets, spmf_times)
 
     println("Đã tải $(length(datasets)) dataset(s): $(join(first.(datasets), ", "))")
 
     # ── (a) Correctness ─────────────────────────────────────────
-    rows_a = run_correctness(datasets)
-    write_csv(joinpath(OUTDIR, "a_correctness.csv"),
-        ["dataset", "n_transactions", "minsup_pct",
-         "n_itemsets_basic", "n_itemsets_bitset",
-         "spmf_n_itemsets", "spmf_match_ratio",
-         "cross_match_ratio", "status"],
-        rows_a)
+    # rows_a = run_correctness(datasets)
+    # write_csv(joinpath(OUTDIR, "a_correctness.csv"),
+    #     ["dataset", "n_transactions", "minsup_pct",
+    #      "n_itemsets_basic", "n_itemsets_bitset",
+    #      "spmf_n_itemsets", "spmf_match_ratio",
+    #      "cross_match_ratio", "status"],
+    #     rows_a)
 
     # ── (b) + (c) Runtime & Count ────────────────────────────────
-    rows_bc = run_runtime_and_count(datasets, spmf_times)
-    write_csv(joinpath(OUTDIR, "b_runtime_vs_minsup.csv"),
-        ["dataset", "minsup_pct", "minsup_rel",
-         "time_basic_ms", "time_bitset_ms", "time_spmf_ms", "n_itemsets"],
-        rows_bc)
-    write_csv(joinpath(OUTDIR, "c_itemset_count_vs_minsup.csv"),
-        ["dataset", "minsup_pct", "n_itemsets"],
-        [(r[1], r[2], r[7]) for r in rows_bc])
+    # rows_bc = run_runtime_and_count(datasets, spmf_times)
+    # write_csv(joinpath(OUTDIR, "b_runtime_vs_minsup.csv"),
+    #     ["dataset", "minsup_pct", "minsup_rel",
+    #      "time_basic_ms", "time_bitset_ms", "time_spmf_ms", "n_itemsets"],
+    #     rows_bc)
+    # write_csv(joinpath(OUTDIR, "c_itemset_count_vs_minsup.csv"),
+    #     ["dataset", "minsup_pct", "n_itemsets"],
+    #     [(r[1], r[2], r[7]) for r in rows_bc])
 
     # ── (d) Memory ───────────────────────────────────────────────
-    rows_d = run_memory(datasets)
-    write_csv(joinpath(OUTDIR, "d_memory.csv"),
-        ["dataset", "n_transactions", "minsup_pct",
-         "peak_basic_MB", "peak_bitset_MB",
-         "time_basic_ms", "time_bitset_ms", "reduction_pct"],
-        rows_d)
+    # rows_d = run_memory(datasets)
+    # write_csv(joinpath(OUTDIR, "d_memory.csv"),
+    #     ["dataset", "n_transactions", "minsup_pct",
+    #      "peak_basic_MB", "peak_bitset_MB",
+    #      "time_basic_ms", "time_bitset_ms", "reduction_pct"],
+    #     rows_d)
 
     # ── (e) Scalability ──────────────────────────────────────────
-    rows_e = run_scalability(datasets)
-    write_csv(joinpath(OUTDIR, "e_scalability.csv"),
-        ["dataset", "minsup_pct", "fraction_pct",
-         "n_transactions", "time_ms", "n_itemsets"],
-        rows_e)
+    # rows_e = run_scalability(datasets)
+    # write_csv(joinpath(OUTDIR, "e_scalability.csv"),
+    #     ["dataset", "minsup_pct", "fraction_pct",
+    #      "n_transactions", "time_ms", "n_itemsets"],
+    #     rows_e)
 
     # ── (f) Avg length impact ────────────────────────────────────
     rows_f = run_avglen_impact()

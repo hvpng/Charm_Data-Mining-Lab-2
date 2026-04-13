@@ -118,21 +118,12 @@ Dataset toy1–toy5 là ví dụ tay từ Chương 2, dùng minsup tuyệt đố
 accidents, retail, T10I4D100K) dùng để kiểm tra tính đúng đắn ở quy mô lớn.
 """
 const CORRECTNESS_DATASETS = [
-    # ── Ví dụ tay Chương 2 (toy1–toy5, minsup = 40% theo đúng số transaction từng file) ──
-    # ("toy1 (hand example)", joinpath(DATA, "toy", "toy1.txt"),
-    #     [(0.40, "toy1_minsup40.txt")]),
+    # Example dataset
+    ("example1 (hand example)", joinpath(DATA, "toy", "example1.txt"),
+        [(0.50, "example1_minsup50.txt")]),
 
-    # ("toy2 (hand example)", joinpath(DATA, "toy", "toy2.txt"),
-    #     [(0.40, "toy2_minsup40.txt")]),
-
-    # ("toy3 (hand example)", joinpath(DATA, "toy", "toy3.txt"),
-    #     [(0.40, "toy3_minsup40.txt")]),
-
-    # ("toy4 (hand example)", joinpath(DATA, "toy", "toy4.txt"),
-    #     [(0.40, "toy4_minsup40.txt")]),
-
-    # ("toy5 (hand example)", joinpath(DATA, "toy", "toy5.txt"),
-    #     [(0.40, "toy5_minsup40.txt")]),
+    ("example2 (hand example)", joinpath(DATA, "toy", "example2.txt"),
+        [(0.50, "example2_minsup50.txt")]),
 
     # ── Benchmark datasets ────────────────────────────────────────────────
     ("chess", joinpath(DATA, "benchmark", "chess.txt"),
