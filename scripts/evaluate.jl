@@ -1,7 +1,7 @@
 """
 scripts/evaluate.jl
 
-Chạy toàn bộ 6 thực nghiệm bắt buộc (Chương 4) và xuất kết quả ra results/.
+Chạy toàn bộ 6 thực nghiệm và xuất kết quả ra results/.
 
 Cách dùng:
     julia --project=. scripts/evaluate.jl
@@ -38,8 +38,7 @@ const EVAL_SEED = 20260410
 
 mkpath(OUTDIR)
 
-# minsup points cho từng dataset — phải KHỚP với run_spmf.bat
-# key = tên dataset, value = vector minsup dạng Int (%) giảm dần
+# minsup points cho từng dataset 
 const MINSUP_POINTS = Dict(
     "chess"       => [90, 80, 70, 60, 50, 40, 30],
     "mushrooms"   => [50, 40, 30, 20, 15, 10,  5],
@@ -200,7 +199,6 @@ end
     get_minsup_points(name) -> Vector{Int}
 
 Trả về danh sách minsup (%) cho dataset theo tên.
-Các giá trị này phải khớp với những gì run_spmf.bat đã chạy.
 
 # Arguments
 - `name::String`: Tên dataset.
@@ -251,12 +249,7 @@ has_ref(dataset::String, minsup_pct::Int) = isfile(ref_path(dataset, minsup_pct)
 """
     parse_spmf_time(dataset, minsup_pct) -> Union{Float64, Missing}
 
-Đọc thời gian chạy SPMF từ file reference (nếu có ghi dòng #TIME).
-SPMF không tự động ghi thời gian vào output file, nên trả về `missing`
-trừ khi bạn thêm thủ công.
-
-Lưu ý: Để lấy thời gian SPMF, cách đơn giản nhất là đọc output console
-khi chạy run_spmf.bat và ghi vào file data/reference/spmf_times.csv thủ công.
+Đọc thời gian chạy SPMF từ file reference. Nếu không có, trả về `missing`.
 
 # Arguments
 - `dataset::String`: Tên dataset.
@@ -493,8 +486,8 @@ end
 
 Thực nghiệm (e): thời gian chạy khi tăng dần kích thước CSDL.
 
-Ưu tiên dùng "retail" hoặc "accidents". Tạo subset 10/25/50/75/100%
-giao dịch (lấy liên tiếp từ đầu file — không shuffle để reproducible).
+Dùng "retail". Tạo subset 10/25/50/75/100%
+giao dịch (lấy liên tiếp từ đầu file, không shuffle để reproducible).
 Minsup cố định = minsup cao nhất của dataset (để tránh timeout ở 100%).
 
 # Arguments
@@ -551,12 +544,6 @@ Thực nghiệm (f): ảnh hưởng của avg transaction length lên thời gia
 Sinh dữ liệu tổng hợp với seed cố định. Giữ nguyên n_txn và n_items,
 chỉ tăng dần avg_len: 5 → 10 → 15 → 20 → 30.
 
-Lý thuyết CHARM:
-  - Tidset của mỗi item dày hơn khi giao dịch dài hơn
-    → intersection tốn kém hơn (O(n) cho BitVector)
-  - Số closed itemset tăng nhanh theo avg_len
-  - Thời gian tăng phi tuyến (thường ~ polynomial hoặc exponential)
-
 # Arguments
 - `n_txn`: Số giao dịch tổng hợp.
 - `n_items`: Phạm vi item ID (1..n_items).
@@ -593,7 +580,7 @@ end
 
 In hướng dẫn tạo file spmf_times.csv để lưu thời gian chạy SPMF thủ công.
 
-SPMF không ghi thời gian vào output file — bạn cần đọc từ console output
+SPMF không ghi thời gian vào output file, bạn cần đọc từ console output
 của run_spmf.bat rồi ghi vào file này.
 
 # Returns
@@ -679,29 +666,29 @@ function main()
     #     rows_a)
 
     # ── (b) + (c) Runtime & Count ────────────────────────────────
-    # rows_bc = run_runtime_and_count(datasets, spmf_times)
-    # write_csv(joinpath(OUTDIR, "b_runtime_vs_minsup.csv"),
-    #     ["dataset", "minsup_pct", "minsup_rel",
-    #      "time_basic_ms", "time_bitset_ms", "time_spmf_ms", "n_itemsets"],
-    #     rows_bc)
-    # write_csv(joinpath(OUTDIR, "c_itemset_count_vs_minsup.csv"),
-    #     ["dataset", "minsup_pct", "n_itemsets"],
-    #     [(r[1], r[2], r[7]) for r in rows_bc])
+    rows_bc = run_runtime_and_count(datasets, spmf_times)
+    write_csv(joinpath(OUTDIR, "b_runtime_vs_minsup.csv"),
+        ["dataset", "minsup_pct", "minsup_rel",
+         "time_basic_ms", "time_bitset_ms", "time_spmf_ms", "n_itemsets"],
+        rows_bc)
+    write_csv(joinpath(OUTDIR, "c_itemset_count_vs_minsup.csv"),
+        ["dataset", "minsup_pct", "n_itemsets"],
+        [(r[1], r[2], r[7]) for r in rows_bc])
 
     # ── (d) Memory ───────────────────────────────────────────────
-    # rows_d = run_memory(datasets)
-    # write_csv(joinpath(OUTDIR, "d_memory.csv"),
-    #     ["dataset", "n_transactions", "minsup_pct",
-    #      "peak_basic_MB", "peak_bitset_MB",
-    #      "time_basic_ms", "time_bitset_ms", "reduction_pct"],
-    #     rows_d)
+    rows_d = run_memory(datasets)
+    write_csv(joinpath(OUTDIR, "d_memory.csv"),
+        ["dataset", "n_transactions", "minsup_pct",
+         "peak_basic_MB", "peak_bitset_MB",
+         "time_basic_ms", "time_bitset_ms", "reduction_pct"],
+        rows_d)
 
     # ── (e) Scalability ──────────────────────────────────────────
-    # rows_e = run_scalability(datasets)
-    # write_csv(joinpath(OUTDIR, "e_scalability.csv"),
-    #     ["dataset", "minsup_pct", "fraction_pct",
-    #      "n_transactions", "time_ms", "n_itemsets"],
-    #     rows_e)
+    rows_e = run_scalability(datasets)
+    write_csv(joinpath(OUTDIR, "e_scalability.csv"),
+        ["dataset", "minsup_pct", "fraction_pct",
+         "n_transactions", "time_ms", "n_itemsets"],
+        rows_e)
 
     # ── (f) Avg length impact ────────────────────────────────────
     rows_f = run_avglen_impact()

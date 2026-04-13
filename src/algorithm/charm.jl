@@ -10,7 +10,7 @@ include(joinpath(@__DIR__, "..", "utils.jl"))
 @inline _intersect_tidset(a::BitVector, b::BitVector) = a .& b
 @inline _tidset_equal(a::BitVector, b::BitVector) = a == b
 
-# ĐÃ SỬA LỖI BIT RÁC: Dùng phép toán bitwise chuẩn của Julia
+# Dùng phép toán bitwise chuẩn của Julia
 @inline _tidset_subseteq(a::BitVector, b::BitVector) = (a .& b) == a
 
 # Hỗ trợ Set{Int}
@@ -47,15 +47,12 @@ function _replace_prefix!(list, old_p::Vector{Int}, new_p::Vector{Int})
     end
 end
 
-# Dùng Support làm Key cho Hash Table: Tránh hoàn toàn Hash Collision
-# Vì X subset Y và sup(X) == sup(Y) => t(X) == t(Y) tuyệt đối.
 function _is_subsumed(C_dict::Dict{Int, Vector{Vector{Int}}}, x::Vector{Int}, sup_x::Int)::Bool
     !haskey(C_dict, sup_x) && return false
     candidates = C_dict[sup_x]
     n_x = length(x)
     @inbounds for i in eachindex(candidates)
         target = candidates[i]
-        # ĐÃ SỬA LỖI TRÙNG LẶP: Đổi > thành >= để xóa các tập giống hệt nhau
         if length(target) >= n_x && _items_subseteq_sorted(x, target)
             return true
         end
@@ -135,7 +132,6 @@ function charm(
             @inbounds db[item][tid] = true
         end
         
-        # ĐÃ SỬA LỖI SẮP XẾP NHÁNH: count() thay vì length()
         sort!(items_list, by = x -> count(db[x]))
         
         P = Tuple{Vector{Int}, BitVector}[]
@@ -150,7 +146,6 @@ function charm(
             push!(get!(Set{Int}, db_basic, item), tid)
         end
         
-        # ĐÃ SỬA LỖI SẮP XẾP NHÁNH: get() length thay vì lỗi
         sort!(items_list, by = x -> length(get(db_basic, x, Set{Int}())))
         
         P_basic = Tuple{Vector{Int}, Set{Int}}[]

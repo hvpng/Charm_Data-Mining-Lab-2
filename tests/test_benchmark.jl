@@ -124,7 +124,7 @@ end
     BENCH_DATASETS -> Vector{NamedTuple}
 
 Tập benchmark dùng trong kiểm thử tối ưu hóa tốc độ/bộ nhớ.
-Theo yêu cầu hiện tại, chỉ chạy đúng 1 dataset đại diện: `chess`.
+Chỉ chạy đúng 1 dataset đại diện: `chess`.
 
 # Fields mỗi entry
 - `name::String`: Tên dataset hiển thị trong output.

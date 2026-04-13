@@ -134,15 +134,6 @@ const CORRECTNESS_DATASETS = [
         [(Int(round(0.20 * 8416)), "mushrooms_minsup20.txt"),
          (Int(round(0.50 * 8416)), "mushrooms_minsup50.txt")]),
 
-    # ("accidents", joinpath(DATA, "benchmark", "accidents.txt"),
-    #     [(Int(round(0.20 * 340183)), "accidents_minsup20.txt"),
-    #      (Int(round(0.50 * 340183)), "accidents_minsup50.txt"),
-    #      (Int(round(0.80 * 340183)), "accidents_minsup80.txt")]),
-
-    # ("retail", joinpath(DATA, "benchmark", "retail.txt"),
-    #     [(Int(round(0.01 * 88162)), "retail_minsup1.txt"),
-    #      (Int(round(0.05 * 88162)), "retail_minsup5.txt")]),
-
     ("T10I4D100K", joinpath(DATA, "benchmark", "T10I4D100K.txt"),
         [(Int(round(0.01 * 100000)), "T10I4D100K_minsup1.txt"),
          (Int(round(0.05 * 100000)), "T10I4D100K_minsup5.txt")]),
@@ -154,9 +145,9 @@ const CORRECTNESS_DATASETS = [
 
 @testset "CHARM correctness vs SPMF reference" begin
 
-    # ── 1. Tính chất closed-itemset (sanity check trên toy1) ──────────────
+    # ── 1. Tính chất closed-itemset (sanity check trên example1) ──────────────
     @testset "Closed-mode subset property" begin
-        txns    = read_spmf_transactions(joinpath(DATA, "toy", "toy1.txt"))
+        txns    = read_spmf_transactions(joinpath(DATA, "toy", "example1.txt"))
         cls_res = charm(txns, 0.4; implementation=:bitset)
         cls_map = as_dict(cls_res)
 
@@ -173,15 +164,15 @@ const CORRECTNESS_DATASETS = [
     # ── 2. So sánh với ground truth SPMF trên tất cả dataset ─────────────
     for (name, data_path, cases) in CORRECTNESS_DATASETS
         @testset "$name" begin
-            println("  [start dataset] $name")
+            # println("  [start dataset] $name")
             @test isfile(data_path)
             txns = read_spmf_transactions(data_path)
-            println("  [dataset loaded] $name: $(length(txns)) transactions")
+            # println("  [dataset loaded] $name: $(length(txns)) transactions")
 
             for (minsup, ref_file) in cases
                 ref_path = joinpath(REF, ref_file)
                 @test isfile(ref_path)
-                println("    [start case] $name | $ref_file | minsup=$minsup")
+                # println("    [start case] $name | $ref_file | minsup=$minsup")
                 check_against_reference(txns, minsup, ref_path;
                                         label="$name | $ref_file")
             end

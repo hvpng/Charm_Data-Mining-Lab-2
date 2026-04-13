@@ -1,8 +1,6 @@
 """
-Chuong 5 (Optional) - Ung dung thuc te: Market Basket Analysis
-
 Yeu cau:
-- Dung chinh cai dat CHARM cua nhom de lay frequent itemsets
+- Dung cai dat CHARM de lay frequent closed itemsets
 - Sinh association rules voi sup >= minsup va conf >= minconf
 - Xuat top-10 rule theo lift
 
